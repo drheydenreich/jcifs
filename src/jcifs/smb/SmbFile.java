@@ -708,7 +708,7 @@ public class SmbFile extends URLConnection implements SmbConstants {
 /* Technically we should also try to authenticate here but that means doing the session setup and tree connect separately. For now a simple connect will at least tell us if the host is alive. That should be sufficient for 99% of the cases. We can revisit this again for 2.0.
  */
                     trans.connect();
-                    tree = trans.getSmbSession( auth ).getSmbTree( dr.share, service );
+                    tree = trans.getSmbSession( authenticator, auth ).getSmbTree( dr.share, service );
 
                     if (dr != start && dr.key != null) {
                         dr.map.put(dr.key, dr);
@@ -895,7 +895,7 @@ int addressIndex;
             trans = tree.session.transport;
         } else {
             trans = SmbTransport.getSmbTransport(addr, url.getPort());
-            tree = trans.getSmbSession(auth).getSmbTree(share, null);
+            tree = trans.getSmbSession(authenticator, auth).getSmbTree(share, null);
         }
 
         String hostName = getServerWithDfs();
@@ -914,13 +914,13 @@ int addressIndex;
             SmbSession ssn;
 
             if (share == null) { // IPC$ - try "anonymous" credentials
-                ssn = trans.getSmbSession(NtlmPasswordAuthentication.NULL);
+                ssn = trans.getSmbSession(authenticator, NtlmPasswordAuthentication.NULL);
                 tree = ssn.getSmbTree(null, null);
                 tree.treeConnect(null, null);
             } else if ((a = NtlmAuthenticator.requestNtlmPasswordAuthentication(
                         url.toString(), sae)) != null) {
                 auth = a;
-                ssn = trans.getSmbSession(auth);
+                ssn = trans.getSmbSession(authenticator, auth);
                 tree = ssn.getSmbTree(share, null);
                 tree.inDomainDfs = dfs.resolve(hostName, tree.share, null, auth) != null;
                 if (tree.inDomainDfs) {
@@ -2975,4 +2975,49 @@ if (this instanceof SmbNamedPipe) {
         return getSecurity(false);
     }
 
+    private SmbExtendedAuthenticator authenticator = null;
+
+    /**
+     * Instance a SmbFile object with Extended Security Authentication by
+     * providing specified SmbAuthenticator. The authentication information in
+     * URL will be ignored.
+     * 
+     * @param url
+     * @param authenticator
+     * @param shareAccess
+     * @throws MalformedURLException
+     */
+    public SmbFile(String url, SmbExtendedAuthenticator authenticator,
+            int shareAccess) throws MalformedURLException {
+        this(url, (NtlmPasswordAuthentication) null, shareAccess);
+        this.authenticator = authenticator;
+    }
+
+    /**
+     * Instance a SmbFile object with Extended Security Authentication by
+     * providing specified SmbAuthenticator. The authentication information in
+     * URL will be ignored.
+     * 
+     * @param url
+     * @param authenticator
+     * @throws MalformedURLException
+     */
+    public SmbFile(String url, SmbExtendedAuthenticator authenticator)
+            throws MalformedURLException {
+        this(url, (NtlmPasswordAuthentication) null);
+        this.authenticator = authenticator;
+    }
+
+    /**
+     * Instance a SmbFile object with Extended Security Authentication by
+     * providing specified SmbAuthenticator. The authentication information in
+     * URL will be ignored.
+     * 
+     * @param url
+     * @param authenticator
+     */
+    public SmbFile(URL url, SmbExtendedAuthenticator authenticator) {
+        this(url, (NtlmPasswordAuthentication) null);
+        this.authenticator = authenticator;
+    }
 }

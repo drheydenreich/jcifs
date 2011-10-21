@@ -20,13 +20,15 @@ package jcifs.smb;
 
 import java.io.UnsupportedEncodingException;
 
+import jcifs.Config;
+
 class SmbComNegotiate extends ServerMessageBlock {
 
     private static final String DIALECTS = "\u0002NT LM 0.12\u0000";
 
     SmbComNegotiate() {
         command = SMB_COM_NEGOTIATE;
-        flags2 = DEFAULT_FLAGS2;
+        flags2 = Config.getInt( "jcifs.smb.client.flags2", DEFAULT_FLAGS2 );
     }
 
     int writeParameterWordsWireFormat( byte[] dst, int dstIndex ) {

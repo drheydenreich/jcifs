@@ -33,7 +33,7 @@ import jcifs.dcerpc.msrpc.*;
 public class SmbTransport extends Transport implements SmbConstants {
 
     static final byte[] BUF = new byte[0xFFFF];
-    static final SmbComNegotiate NEGOTIATE_REQUEST = new SmbComNegotiate();
+    final SmbComNegotiate NEGOTIATE_REQUEST;
     static LogStream log = LogStream.getInstance();
     static HashMap dfsRoots = null;
 
@@ -45,18 +45,26 @@ public class SmbTransport extends Transport implements SmbConstants {
         SmbTransport conn;
 
         synchronized( CONNECTIONS ) {
+            SmbComNegotiate negotiate = new SmbComNegotiate();
             if( SSN_LIMIT != 1 ) {
                 ListIterator iter = CONNECTIONS.listIterator();
                 while( iter.hasNext() ) {
                     conn = (SmbTransport)iter.next();
                     if( conn.matches( address, port, localAddr, localPort, hostName ) &&
                             ( SSN_LIMIT == 0 || conn.sessions.size() < SSN_LIMIT )) {
-                        return conn;
+                        /* Compare the flags2 field in SMB block to decide
+                        // whether the authentication method is changed. Because one
+                        // tranport can only negotiate only once, if authentication
+                        // method is changed, we need to re-create the transport to
+                         re-negotiate with server.*/
+                        if (conn.NEGOTIATE_REQUEST.flags2 == negotiate.flags2) {
+                            return conn;
+                        }
                     }
                 }
             }
 
-            conn = new SmbTransport( address, port, localAddr, localPort );
+            conn = new SmbTransport( negotiate, address, port, localAddr, localPort );
             CONNECTIONS.add( 0, conn );
         }
 
@@ -109,24 +117,30 @@ public class SmbTransport extends Transport implements SmbConstants {
     boolean useUnicode = USE_UNICODE;
     String tconHostName = null;
 
-    SmbTransport( UniAddress address, int port, InetAddress localAddr, int localPort ) {
+    SmbTransport( SmbComNegotiate nego, UniAddress address, int port, InetAddress localAddr, int localPort ) {
+        this.NEGOTIATE_REQUEST = nego;
+        this.flags2 = NEGOTIATE_REQUEST.flags2;
+        this.capabilities = Config.getInt("jcifs.smb.client.capabilities",
+                DEFAULT_CAPABILITIES);
         this.address = address;
         this.port = port;
         this.localAddr = localAddr;
         this.localPort = localPort;
     }
 
-    synchronized SmbSession getSmbSession() {
-        return getSmbSession( new NtlmPasswordAuthentication( null, null, null ));
-    }
     synchronized SmbSession getSmbSession( NtlmPasswordAuthentication auth ) {
+        return getSmbSession( null, auth );
+    }
+    synchronized SmbSession getSmbSession( SmbExtendedAuthenticator authenticator,
+            NtlmPasswordAuthentication auth ) {
         SmbSession ssn;
         long now;
 
         ListIterator iter = sessions.listIterator();
         while( iter.hasNext() ) {
             ssn = (SmbSession)iter.next();
-            if( ssn.matches( auth )) {
+            if( ssn.matches( authenticator, auth )) {
+            	ssn.authenticator = authenticator;
                 ssn.auth = auth;
                 return ssn;
             }
@@ -144,7 +158,7 @@ public class SmbTransport extends Transport implements SmbConstants {
             }
         }
 
-        ssn = new SmbSession( address, port, localAddr, localPort, auth );
+      	ssn = new SmbSession( address, port, localAddr, localPort, authenticator, auth );
         ssn.transport = this;
         sessions.add( ssn );
 
@@ -374,6 +388,9 @@ public class SmbTransport extends Transport implements SmbConstants {
             digest = null;
             socket = null;
             tconHostName = null;
+        		synchronized (CONNECTIONS) {
+            	CONNECTIONS.remove(this);
+        	}
         }
     }
 
@@ -545,9 +562,10 @@ public class SmbTransport extends Transport implements SmbConstants {
             case NtStatus.NT_STATUS_TRUSTED_DOMAIN_FAILURE:
                 throw new SmbAuthException( resp.errorCode );
             case NtStatus.NT_STATUS_PATH_NOT_COVERED:
-                if( req.auth == null ) {
+                if( req.auth == null && req.authenticator == null) {
                     throw new SmbException( resp.errorCode, null );
                 }
+                this.authenticator = req.authenticator;
 
                 DfsReferral dr = getDfsReferrals(req.auth, req.path, 1);
                 if (dr == null)
@@ -607,7 +625,7 @@ public class SmbTransport extends Transport implements SmbConstants {
                         makeKey( req );
                     }
 
-                    synchronized (this) {
+                    synchronized (response_map) {
                         response.received = false;
                         resp.isReceived = false;
                         try {
@@ -628,7 +646,7 @@ public class SmbTransport extends Transport implements SmbConstants {
                             long timeout = RESPONSE_TIMEOUT;
                             resp.expiration = System.currentTimeMillis() + timeout;
                             while( resp.hasMoreElements() ) {
-                                wait( timeout );
+                            	response_map.wait( timeout );
                                 timeout = resp.expiration - System.currentTimeMillis();
                                 if (timeout <= 0) {
                                     throw new TransportException( this +
@@ -743,7 +761,7 @@ public class SmbTransport extends Transport implements SmbConstants {
     DfsReferral[] __getDfsReferrals(NtlmPasswordAuthentication auth,
                 String path,
                 int rn) throws SmbException {
-        SmbTree ipc = getSmbSession( auth ).getSmbTree( "IPC$", null );
+        SmbTree ipc = getSmbSession( authenticator, auth ).getSmbTree( "IPC$", null );
         Trans2GetDfsReferralResponse resp = new Trans2GetDfsReferralResponse();
         ipc.send( new Trans2GetDfsReferral( path ), resp );
 
@@ -810,5 +828,8 @@ public class SmbTransport extends Transport implements SmbConstants {
 //            }
 //        }
 //    }
+
+    private SmbExtendedAuthenticator authenticator = null;
+
 }
 

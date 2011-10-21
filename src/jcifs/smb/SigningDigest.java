@@ -192,5 +192,26 @@ public class SigningDigest implements SmbConstants {
     public String toString() {
         return "LM_COMPATIBILITY=" + LM_COMPATIBILITY + " MacSigningKey=" + Hexdump.toHexString(macSigningKey, 0, macSigningKey.length);
     }
+
+    /**
+     * This constructor used to instance a SigningDigest object for 
+     * signing/verifying SMB using kerberos session key.
+     * The MAC Key = concat(Session Key, Digest of Challenge);
+     * Because of Kerberos Authentication don't have challenge,
+     * The MAC Key = Session Key
+     * 
+     * @param macSigningKey The MAC key used to sign or verify SMB.
+     * @throws SmbException When failed to instance MessageDigest with "MD5" algorithm.
+     */
+    public SigningDigest( byte[] macSigningKey ) throws SmbException {
+        try {
+            digest = MessageDigest.getInstance("MD5");
+        } catch (NoSuchAlgorithmException ex) {
+            if( LogStream.level > 2 )
+                ex.printStackTrace( log );
+            throw new SmbException( "MD5", ex );
+        }
+        this.macSigningKey = macSigningKey;
+    }
 }
 

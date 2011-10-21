@@ -25,6 +25,8 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.io.PrintStream;
 
+import jcifs.Config;
+
 public class Handler extends URLStreamHandler {
 
     static final URLStreamHandler SMB_HANDLER = new Handler();
@@ -33,7 +35,7 @@ public class Handler extends URLStreamHandler {
         return SmbConstants.DEFAULT_PORT;
     }
     public URLConnection openConnection( URL u ) throws IOException {
-        return new SmbFile( u );
+    	return new SmbFile( u, Config.getOpneConnectionAuthenticator() );
     }
     protected void parseURL( URL u, String spec, int start, int limit ) {
         String host = u.getHost();

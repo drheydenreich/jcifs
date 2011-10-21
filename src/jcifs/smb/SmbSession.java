@@ -198,8 +198,22 @@ synchronized (DOMAIN) {
         trees.addElement( t );
         return t;
     }
-    boolean matches( NtlmPasswordAuthentication auth ) {
-        return this.auth == auth || this.auth.equals( auth );
+    boolean matches( SmbExtendedAuthenticator authenticator,
+            NtlmPasswordAuthentication auth ) {
+        return matcheObject( this.authenticator, authenticator )
+                && matcheObject( this.auth, auth );
+    }
+
+    private boolean matcheObject( Object obj1, Object obj2 ) {
+        boolean ret = false;
+        if (obj1 == null) {
+            if (obj2 == null) {
+                ret = true;
+            }
+        } else {
+            ret = obj1.equals( obj2 );
+        }
+        return ret;
     }
     synchronized SmbTransport transport() {
         if( transport == null ) {
@@ -234,6 +248,7 @@ synchronized (transport()) {
 
         request.uid = uid;
         request.auth = auth;
+        request.authenticator = authenticator;
         try {
             transport.send( request, response );
         } catch (SmbException se) {
@@ -282,7 +297,10 @@ synchronized (transport()) {
              * "The parameter is incorrect" error can occur.
              */
             uid = 0;
-    
+            
+    		if (authenticator != null) {
+            	authenticator.sessionSetup(this, andx, andxResponse);
+        	} else {
             do {
                 switch (state) {
                     case 10: /* NTLM */
@@ -424,6 +442,7 @@ synchronized (transport()) {
                         throw new SmbException("Unexpected session setup state: " + state);
                 }
             } while (state != 0);
+            }
         } catch (SmbException se) {
             logoff(true);
             connectionState = 0;
@@ -470,5 +489,22 @@ synchronized (transport()) {
                 ",primaryDomain=" + auth.domain +
                 ",uid=" + uid +
                 ",connectionState=" + connectionState + "]";
+    }
+
+    SmbExtendedAuthenticator authenticator = null;
+
+    SmbSession(UniAddress address, int port, InetAddress localAddr,
+            int localPort, SmbExtendedAuthenticator authenticator,
+            NtlmPasswordAuthentication auth) {
+        this(address, port, localAddr, localPort, auth);
+        this.authenticator = authenticator;
+    }
+
+    void setUid(int uid) {
+        this.uid = uid;
+    }
+
+    void setSessionSetup(boolean b) {
+        connectionState = 2;
     }
 }

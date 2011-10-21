@@ -255,5 +255,27 @@ if ((flags & 1) != 0) {
             }
         } while( len > 0 );
     }
+
+    /**
+     * Instance a SmbFileOutputStream object using spicified SmbAuthenticator.
+     * The authentication information in URL will be ignored.
+     * 
+     * @param url 
+     * @param authenticator
+     */
+    public SmbFileOutputStream( String url , SmbExtendedAuthenticator authenticator) throws SmbException, MalformedURLException, UnknownHostException {
+        this( url, authenticator, false );
+    }
+    /**
+     * Instance a SmbFileOutputStream object using spicified SmbAuthenticator.
+     * The authentication information in URL will be ignored.
+     * 
+     * @param url 
+     * @param authenticator
+     * @param append
+     */
+    public SmbFileOutputStream( String url, SmbExtendedAuthenticator authenticator, boolean append ) throws SmbException, MalformedURLException, UnknownHostException {
+        this( new SmbFile( url, authenticator ), append );
+    }
 }
 

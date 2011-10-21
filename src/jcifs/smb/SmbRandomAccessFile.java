@@ -330,5 +330,22 @@ public class SmbRandomAccessFile implements DataOutput, DataInput {
         }
         write( dst, 0, size );
     }
+
+    /**
+     * This constructor is used to instance a SmbRandomAccessFile object with
+     * Extended Security Authentication by provide a SmbAuthenticator object.
+     * 
+     * @param url
+     * @param mode
+     * @param shareAccess
+     * @param authenticator
+     * @throws SmbException
+     * @throws MalformedURLException
+     * @throws UnknownHostException
+     */
+    public SmbRandomAccessFile( String url, String mode, int shareAccess, SmbExtendedAuthenticator authenticator )
+        throws SmbException, MalformedURLException, UnknownHostException {
+        this( new SmbFile( url, authenticator, shareAccess ), mode );
+    }
 }
 
