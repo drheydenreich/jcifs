@@ -66,7 +66,7 @@ class SmbComNegotiateResponse extends ServerMessageBlock {
                                     int bufferIndex ) {
         int start = bufferIndex;
 
-        if ((server.capabilities & FLAGS2_EXTENDED_SECURITY_NEGOTIATION) == 0) {
+        if ((server.capabilities & CAP_EXTENDED_SECURITY) == 0) {
             server.encryptionKey = new byte[server.encryptionKeyLength];
             System.arraycopy( buffer, bufferIndex,
                     server.encryptionKey, 0, server.encryptionKeyLength );

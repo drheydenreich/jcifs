@@ -3,11 +3,17 @@ package jcifs.smb;
 import java.security.Key;
 import java.security.PrivilegedActionException;
 import java.security.PrivilegedExceptionAction;
+import java.util.Iterator;
+import java.util.Set;
+
 import javax.security.auth.Subject;
+import javax.security.auth.kerberos.KerberosPrincipal;
+
 import org.ietf.jgss.GSSContext;
 import org.ietf.jgss.GSSCredential;
 import org.ietf.jgss.GSSException;
 
+import jcifs.Config;
 import jcifs.smb.ServerMessageBlock;
 import jcifs.smb.Kerb5SessionSetupAndX;
 import jcifs.smb.SmbException;
@@ -187,7 +193,7 @@ public class Kerb5Authenticator implements SmbExtendedAuthenticator{
             Kerb5SessionSetupAndXResponse response = null;
             
             while(!spnego.isEstablished()){
-                token = spnego.initSecContext(token, 0, token.length);
+           		token = spnego.initSecContext(token, 0, token.length);
                 if(token != null){
                     request = new Kerb5SessionSetupAndX(session, null/*andx*/);
                     request.getSecurityBlob().set(token);
@@ -251,5 +257,29 @@ public class Kerb5Authenticator implements SmbExtendedAuthenticator{
 //        return false;
          // SmbAuthenticator 11062008<<
     }
+
+    public String getDomain() {
+		String realm = "";
+		if (subject != null) {
+			Set pr=subject.getPrincipals();
+	        for (Iterator ite = pr.iterator();ite.hasNext();){
+	        	try{
+		        	KerberosPrincipal entry = (KerberosPrincipal) ite.next();
+		        	realm = entry.getRealm();
+		        	break;
+	        	}catch (Exception e){
+	        		continue;
+	        	}
+	        }
+		}
+		if (realm.isEmpty()){
+			return getDefaultDomain();
+		}
+        return realm;
+	}
+	private String getDefaultDomain(){
+        return Config.getProperty("jcifs.smb.client.domain", "?");
+	}
+	
 }
 // SmbAuthenticator<<

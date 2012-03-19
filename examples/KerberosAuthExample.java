@@ -50,7 +50,7 @@ public class KerberosAuthExample {
             SmbFile[] files = file.listFiles();
             for( int i = 0; i < files.length; i++ ) {
                 System.out.println( "-->" + files[i].getName() );
-                System.out.println("DFS path: " + files[0].getDfsPath());
+                System.out.println("DFS path: " + files[i].getDfsPath());
             }
 
         } catch (Exception e) {

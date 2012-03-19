@@ -667,12 +667,19 @@ public class SmbFile extends URLConnection implements SmbConstants {
             return;
 
         connect0();
-
+        // >>SmbAuthenticator Fixed trusted domain issue.
         DfsReferral dr = dfs.resolve(
                     tree.session.transport.tconHostName,
                     tree.share,
                     unc,
+                    authenticator,
                     auth);
+//        DfsReferral dr = dfs.resolve(
+//                tree.session.transport.tconHostName,
+//                tree.share,
+//                unc,
+//                auth);
+        // <<SmbAuthenticator
         if (dr != null) {
             String service = null;
 
@@ -708,7 +715,10 @@ public class SmbFile extends URLConnection implements SmbConstants {
 /* Technically we should also try to authenticate here but that means doing the session setup and tree connect separately. For now a simple connect will at least tell us if the host is alive. That should be sufficient for 99% of the cases. We can revisit this again for 2.0.
  */
                     trans.connect();
-                    tree = trans.getSmbSession( authenticator, auth ).getSmbTree( dr.share, service );
+                    // >>SmbAuthenticator
+//                    tree = trans.getSmbSession( auth ).getSmbTree( dr.share, service );
+                  tree = trans.getSmbSession( authenticator, auth ).getSmbTree( dr.share, service );
+                  // SmbAuthenticator<<
 
                     if (dr != start && dr.key != null) {
                         dr.map.put(dr.key, dr);
@@ -895,11 +905,15 @@ int addressIndex;
             trans = tree.session.transport;
         } else {
             trans = SmbTransport.getSmbTransport(addr, url.getPort());
-            tree = trans.getSmbSession(authenticator, auth).getSmbTree(share, null);
+            // >>SmbAuthenticator
+//            tree = trans.getSmbSession(auth).getSmbTree(share, null);
+          tree = trans.getSmbSession(authenticator, auth).getSmbTree(share, null);
+          // SmbAuthenticator<<
+
         }
 
         String hostName = getServerWithDfs();
-        tree.inDomainDfs = dfs.resolve(hostName, tree.share, null, auth) != null;
+        tree.inDomainDfs = dfs.resolve(hostName, tree.share, null, authenticator,auth) != null;
         if (tree.inDomainDfs) {
             tree.connectionState = 2;
         }
@@ -914,15 +928,21 @@ int addressIndex;
             SmbSession ssn;
 
             if (share == null) { // IPC$ - try "anonymous" credentials
-                ssn = trans.getSmbSession(authenticator, NtlmPasswordAuthentication.NULL);
+                // >>SmbAuthenticator
+//                ssn = trans.getSmbSession(NtlmPasswordAuthentication.NULL);
+              ssn = trans.getSmbSession(authenticator, NtlmPasswordAuthentication.NULL);
+              // SmbAuthenticator<<
                 tree = ssn.getSmbTree(null, null);
                 tree.treeConnect(null, null);
             } else if ((a = NtlmAuthenticator.requestNtlmPasswordAuthentication(
                         url.toString(), sae)) != null) {
                 auth = a;
+                // SmbAuthenticator<<
+//                ssn = trans.getSmbSession(auth);
                 ssn = trans.getSmbSession(authenticator, auth);
+                // SmbAuthenticator<<
                 tree = ssn.getSmbTree(share, null);
-                tree.inDomainDfs = dfs.resolve(hostName, tree.share, null, auth) != null;
+                tree.inDomainDfs = dfs.resolve(hostName, tree.share, null, authenticator,auth) != null;
                 if (tree.inDomainDfs) {
                     tree.connectionState = 2;
                 }
@@ -1765,7 +1785,10 @@ if (this instanceof SmbNamedPipe) {
 
         map = new HashMap();
 
-        if (dfs.isTrustedDomain(getServer(), auth)) {
+        // >>SmbAuthenticator Fixed trusted domain issue.
+        if (dfs.isTrustedDomain(getServer(),authenticator, auth)) {
+//        if (dfs.isTrustedDomain(getServer(), auth)) {
+        // <<SmbAuthenticator
             /* The server name is actually the name of a trusted
              * domain. Add DFS roots to the list.
              */
@@ -2974,7 +2997,7 @@ if (this instanceof SmbNamedPipe) {
     public ACE[] getSecurity() throws IOException {
         return getSecurity(false);
     }
-
+    // >>SmbAuthenticator
     private SmbExtendedAuthenticator authenticator = null;
 
     /**
@@ -3020,4 +3043,6 @@ if (this instanceof SmbNamedPipe) {
         this(url, (NtlmPasswordAuthentication) null);
         this.authenticator = authenticator;
     }
+    // SmbAuthenticator<<
+
 }

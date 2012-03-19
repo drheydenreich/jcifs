@@ -2,4 +2,7 @@
 .project
 /.settings
 /target
+<<<<<<< HEAD
 /bin
+=======
+>>>>>>> master

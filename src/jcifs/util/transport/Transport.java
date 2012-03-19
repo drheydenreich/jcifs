@@ -57,12 +57,9 @@ public abstract class Transport implements Runnable {
     protected abstract void doRecv( Response response ) throws IOException;
     protected abstract void doSkip() throws IOException;
 
-    public Object setupDiscoLock = new Object();
-
-    public void sendrecv( Request request,
+    public synchronized void sendrecv( Request request,
                     Response response,
                     long timeout ) throws IOException {
-        synchronized (response_map) {
             makeKey( request );
             response.isReceived = false;
             try {
@@ -70,7 +67,7 @@ public abstract class Transport implements Runnable {
                 doSend( request );
                 response.expiration = System.currentTimeMillis() + timeout;
                 while (!response.isReceived) {
-                    response_map.wait( timeout );
+                    wait( timeout );
                     timeout = response.expiration - System.currentTimeMillis();
                     if (timeout <= 0) {
                         throw new TransportException( name +
@@ -92,7 +89,6 @@ public abstract class Transport implements Runnable {
             } finally {
                 response_map.remove( request );
             }
-        }
     }
     private void loop() {
         while( thread == Thread.currentThread() ) {
@@ -100,7 +96,7 @@ public abstract class Transport implements Runnable {
                 Request key = peekKey();
                 if (key == null)
                     throw new IOException( "end of stream" );
-                synchronized (response_map) {
+                synchronized (this) {
                     Response response = (Response)response_map.get( key );
                     if (response == null) {
                         if (log.level >= 4)
@@ -109,7 +105,7 @@ public abstract class Transport implements Runnable {
                     } else {
                         doRecv( response );
                         response.isReceived = true;
-                        response_map.notifyAll();
+                        notifyAll();
                     }
                 }
             } catch( Exception ex ) {
@@ -201,32 +197,37 @@ public abstract class Transport implements Runnable {
             }
         }
     }
-    public void disconnect( boolean hard ) throws IOException {
-        synchronized(setupDiscoLock) {
-            synchronized(this) {
-                switch (state) {
-                    case 0: /* not connected - just return */
-                        return;
-                    case 2:
-                        hard = true;
-                    case 3: /* connected - go ahead and disconnect */
-                        if (response_map.size() != 0 && !hard) {
-                            break; /* outstanding requests */
-                        }
-                        doDisconnect( hard );
-                    case 4: /* in error - reset the transport */
-                        thread = null;
-                        state = 0;
-                        break;
-                    default:
-                        if (log.level >= 1)
-                            log.println("Invalid state: " + state);
-                        thread = null;
-                        state = 0;
-                        break;
+    public synchronized void disconnect( boolean hard ) throws IOException {
+        IOException ioe = null;
+
+        switch (state) {
+            case 0: /* not connected - just return */
+                return;
+            case 2:
+                hard = true;
+            case 3: /* connected - go ahead and disconnect */
+                if (response_map.size() != 0 && !hard) {
+                    break; /* outstanding requests */
                 }
-            }
+                try {
+                    doDisconnect( hard );
+                } catch (IOException ioe0) {
+                    ioe = ioe0;
+                }
+            case 4: /* in error - reset the transport */
+                thread = null;
+                state = 0;
+                break;
+            default:
+                if (log.level >= 1)
+                    log.println("Invalid state: " + state);
+                thread = null;
+                state = 0;
+                break;
         }
+
+        if (ioe != null)
+            throw ioe;
     }
     public void run() {
         Thread run_thread = Thread.currentThread();
@@ -248,7 +249,8 @@ public abstract class Transport implements Runnable {
                      * doConnect returned too late, just ignore.
                      */
                     if (ex0 != null) {
-                        ex0.printStackTrace();
+                        if (log.level >= 2)
+                            ex0.printStackTrace(log);
                     }
                     return;
                 }

@@ -181,7 +181,9 @@ abstract class ServerMessageBlock extends Response implements Request, SmbConsta
     int signSeq;
     boolean verifyFailed;
     NtlmPasswordAuthentication auth = null;
+    //>>SmbAuthenticator
     SmbExtendedAuthenticator authenticator = null;
+    //SmbAuthenticator<<
     String path;
     SigningDigest digest = null;
     ServerMessageBlock response;

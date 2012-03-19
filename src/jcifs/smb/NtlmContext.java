@@ -143,7 +143,7 @@ public class NtlmContext {
 
                     serverChallenge = msg2.getChallenge();
                     ntlmsspFlags &= msg2.getFlags();
-
+//zzzzzzzzzzzz
 //                  netbiosName = getNtlmsspListItem(token, 0x0001);
 
                     Type3Message msg3 = new Type3Message(msg2,

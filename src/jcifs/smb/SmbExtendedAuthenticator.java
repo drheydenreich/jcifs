@@ -18,5 +18,7 @@ public interface SmbExtendedAuthenticator {
             ServerMessageBlock andx,
             ServerMessageBlock andxResponse     
     )throws SmbException;
+    
+    public String getDomain();
 }
 // SmbAuthenticator<<

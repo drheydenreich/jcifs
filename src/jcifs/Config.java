@@ -347,7 +347,7 @@ public static int socketCount = 0;
         }
         return def;
     }
-
+    // >>SmbAuthenticator
     private static SmbExtendedAuthenticator smbAuthenticator = null;
 
     /**
@@ -371,5 +371,7 @@ public static int socketCount = 0;
             SmbExtendedAuthenticator smbAuthenticator) {
         Config.smbAuthenticator = smbAuthenticator;
     }
+// SmbAuthenticator<<
+    
 }
 

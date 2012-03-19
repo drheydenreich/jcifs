@@ -192,7 +192,7 @@ public class SigningDigest implements SmbConstants {
     public String toString() {
         return "LM_COMPATIBILITY=" + LM_COMPATIBILITY + " MacSigningKey=" + Hexdump.toHexString(macSigningKey, 0, macSigningKey.length);
     }
-
+    // >>SmbAuthenticator
     /**
      * This constructor used to instance a SigningDigest object for 
      * signing/verifying SMB using kerberos session key.
@@ -213,5 +213,7 @@ public class SigningDigest implements SmbConstants {
         }
         this.macSigningKey = macSigningKey;
     }
+// SmbAuthenticator<<
+
 }
 
