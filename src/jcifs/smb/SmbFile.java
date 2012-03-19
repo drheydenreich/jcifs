@@ -372,6 +372,23 @@ public class SmbFile extends URLConnection implements SmbConstants {
         dfs = new Dfs();
     }
 
+    private static final AuthenticatorFactory authenticatorFactory;
+    static {
+        String authenticatorFactoryClassName = Config
+		        .getProperty("jcifs.smb.client.authenticatorFactoryClass");
+        try {
+	        if(authenticatorFactoryClassName!=null) {
+		        Class authenticatorFactoryClass = Class.forName(authenticatorFactoryClassName);
+		        authenticatorFactory = (AuthenticatorFactory)authenticatorFactoryClass.newInstance();
+	        } else {
+		        authenticatorFactory = null;
+	        }
+        } catch (Exception e) {
+	        throw new IllegalArgumentException(
+			        "Invalid jcifs.smb.client.authenticatorFactoryClass property", e);
+        }
+    }
+
     /**
      * Returned by {@link #getType()} if the resource this <tt>SmbFile</tt>
      * represents is a regular file or directory.
@@ -435,7 +452,11 @@ public class SmbFile extends URLConnection implements SmbConstants {
 /** 
  * Constructs an SmbFile representing a resource on an SMB network such as
  * a file or directory. See the description and examples of smb URLs above.
- *
+ * 
+ * <p>When setting <code>jcifs.smb.client.authenticatorFactoryClass</code> to an 
+ * appropriate factory class name, an authenticator will be created using this 
+ * factory.</p>
+ * 
  * @param   url A URL string
  * @throws  MalformedURLException
  *          If the <code>parent</code> and <code>child</code> parameters
@@ -473,6 +494,10 @@ public class SmbFile extends URLConnection implements SmbConstants {
  * as a file or directory. The second parameter is a relative path from
  * the <code>parent</code>. See the description above for examples of
  * using the second <code>chile</code> parameter.
+ * 
+ * <p>When setting <code>jcifs.smb.client.authenticatorFactoryClass</code> to an 
+ * appropriate factory class name, an authenticator will be created using this 
+ * factory.</p>
  *
  * @param   context A URL string
  * @param   name A path string relative to the <code>context</code> paremeter
@@ -596,6 +621,10 @@ public class SmbFile extends URLConnection implements SmbConstants {
 /**
  * Constructs an SmbFile representing a resource on an SMB network such
  * as a file or directory from a <tt>URL</tt> object.
+ * 
+ * <p>When setting <code>jcifs.smb.client.authenticatorFactoryClass</code> to an 
+ * appropriate factory class name, an authenticator will be created using this 
+ * factory.</p>
  *
  * @param   url The URL of the target resource
  */
@@ -606,6 +635,10 @@ public class SmbFile extends URLConnection implements SmbConstants {
  * Constructs an SmbFile representing a resource on an SMB network such
  * as a file or directory from a <tt>URL</tt> object and an
  * <tt>NtlmPasswordAuthentication</tt> object.
+ * 
+ * <p>When setting <code>jcifs.smb.client.authenticatorFactoryClass</code> to an 
+ * appropriate factory class name, an authenticator will be created using this 
+ * factory.</p>
  *
  * @param   url The URL of the target resource
  * @param   auth The credentials the client should use for authentication
@@ -613,7 +646,9 @@ public class SmbFile extends URLConnection implements SmbConstants {
     public SmbFile( URL url, NtlmPasswordAuthentication auth ) {
         super( url );
         this.auth = auth == null ? new NtlmPasswordAuthentication( url.getUserInfo() ) : auth;
-
+        if ( authenticator == null && authenticatorFactory != null ) {
+            this.authenticator = authenticatorFactory.create();
+        }
         getUncPath0();
     }
     SmbFile( SmbFile context, String name, int type,
